@@ -10,7 +10,3 @@ services:
       - 5347:5347
       - 5280:5280
       - 5281:5281
-    environment:
-      - LOCAL=manhattan
-      - DOMAIN=localhost
-      - PASSWORD=mAn4HatTan
