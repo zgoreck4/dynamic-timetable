@@ -5,14 +5,13 @@ from agents.SchedulerAgent import SchedulerAgent
 async def main():
     scheduleragent = SchedulerAgent("scheduler@localhost", "scheduler")
     await scheduleragent.start()
-    print("Scheduler started")
 
-    destination1 = input("Destination 1. passenger: ")
-    passengeragent = PassengerAgent("passenger@localhost", "passenger", destination1)
+    passengeragent = PassengerAgent("passenger@localhost", "passenger")
     await passengeragent.start()
-    print("Passenger started")
 
-    await spade.wait_until_finished(scheduleragent) # wait until user interrupts with ctrl+C ?
+    await spade.wait_until_finished(scheduleragent)
+    await scheduleragent.stop()
+    await passengeragent.stop()
     print("Agents finished")
 
 
