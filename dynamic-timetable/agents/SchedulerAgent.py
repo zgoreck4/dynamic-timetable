@@ -46,12 +46,11 @@ class SchedulerAgent(Agent):
             start_point = msg_body.get('start_point', None)
             destination = msg_body.get('destination', None)
             passenger_jid = self.agent.msg.sender
-            print(passenger_jid)
             if (start_point != None) & (destination != None):
                 passenger_info = self.agent.PassengerInfo(passenger_jid, start_point, destination)
                 self.agent.passenger_info = passenger_info
 
-            self.set_next_state("RECEIVE_PASSENGER")
+            self.set_next_state("CFP")
 
     class PassengerInfo():
         def __init__(self, passenger_jid, start_point, destination):
@@ -59,17 +58,34 @@ class SchedulerAgent(Agent):
             self.start_point = start_point
             self.destination = destination
 
+    class Cfp(State):
+        async def run(self):
+            print("Scheduler Cfp running")
+            # TODO wysyłanie do wszytkich busów, a nie tylko 1
+            msg = Message(to="routing_bus@localhost")     # Instantiate the message
+            msg.set_metadata("performative", "cfp")  # Set the "inform" FIPA performative
+            msg.set_metadata("ontology", "select_bus")
+            msg.set_metadata("language", "JSON")        # Set the language of the message content
+            # chyba zmienia "passenger_jid": passenger@localhost na "passenger_jid": ["passenger", "localhost", null]. Czy to nie problem?
+            body_dict = json.dumps({"passenger_info": self.agent.passenger_info.__dict__})  
+            msg.body = body_dict                 # Set the message content
+
+            await self.send(msg)
+            print("Message sent!")
+
+            self.set_next_state("RECEIVE_PASSENGER")
+
     async def setup(self):
         print("SchedulerAgent started")
         fsm = self.SchedulerBehaviour()
 
-        fsm.add_state(name="RECEIVE_PASSENGER", state=self.ReceiveTravelRequest(), initial=True)
-        
+        fsm.add_state(name="RECEIVE_PASSENGER", state=self.ReceiveTravelRequest(), initial=True)     
         fsm.add_state(name="SAVE_PASSENGER_INFO", state=self.SavePassengerInfo())
-        # fsm.add_state(name="CFP", state=StateThree())
+        fsm.add_state(name="CFP", state=self.Cfp())
         
-        fsm.add_transition(source="RECEIVE_PASSENGER", dest="SAVE_PASSENGER_INFO")
-        fsm.add_transition(source="SAVE_PASSENGER_INFO", dest="RECEIVE_PASSENGER")
         fsm.add_transition(source="RECEIVE_PASSENGER", dest="RECEIVE_PASSENGER")
+        fsm.add_transition(source="RECEIVE_PASSENGER", dest="SAVE_PASSENGER_INFO")
+        fsm.add_transition(source="SAVE_PASSENGER_INFO", dest="CFP")
+        fsm.add_transition(source="CFP", dest="RECEIVE_PASSENGER")
 
         self.add_behaviour(fsm)
