@@ -11,6 +11,7 @@ class SchedulerAgent(Agent):
         super().__init__(jid, password)
         self.msg = None
         self.passenger_info = None
+        self.selected_bus = None
 
 
     class SchedulerBehaviour(FSMBehaviour):
@@ -73,7 +74,36 @@ class SchedulerAgent(Agent):
             await self.send(msg)
             print("Message sent!")
 
-            self.set_next_state("RECEIVE_PASSENGER")
+            self.set_next_state("RECEIVE_BUS_PROPOSE")
+
+    class ReceiveBusPropose(State):
+        async def run(self):
+            print("Scheduler ReceiveBusPropose running")
+
+            template = Template()
+            template.set_metadata("performative", "propose")
+            template.set_metadata("ontology", "select_bus")
+            # można dodać od koga ta wiadomość ma być (?)
+            
+            # TODO dodać odbieranie wiadomości od kilku busów
+            msg = await self.receive(timeout=10)
+            if msg and template.match(msg):
+                self.agent.msg = msg
+                print("Message received with content: {}".format(msg.body))
+                # TODO zapisanie informacji z wiadomości
+                self.set_next_state("SELECT_BUS")
+            else:
+                # można wpaść w nieskończoną pętle, można by dodać zwrot informacji do pasażera, że nie można przydzielić busa
+                self.set_next_state("CFP")
+
+    class SelectBus(State):
+        async def run(self):
+            print("Scheduler SelectBus running")
+
+            # TODO algorytm wybierania busa
+            # self.agent.selected_bus = #jakiś jid
+
+            # self.set_next_state("RECEIVE_PASSENGER")
 
     async def setup(self):
         print("SchedulerAgent started")
@@ -82,10 +112,14 @@ class SchedulerAgent(Agent):
         fsm.add_state(name="RECEIVE_PASSENGER", state=self.ReceiveTravelRequest(), initial=True)     
         fsm.add_state(name="SAVE_PASSENGER_INFO", state=self.SavePassengerInfo())
         fsm.add_state(name="CFP", state=self.Cfp())
+        fsm.add_state(name="RECEIVE_BUS_PROPOSE", state=self.ReceiveBusPropose())
+        fsm.add_state(name="SELECT_BUS", state=self.SelectBus())
         
         fsm.add_transition(source="RECEIVE_PASSENGER", dest="RECEIVE_PASSENGER")
         fsm.add_transition(source="RECEIVE_PASSENGER", dest="SAVE_PASSENGER_INFO")
         fsm.add_transition(source="SAVE_PASSENGER_INFO", dest="CFP")
-        fsm.add_transition(source="CFP", dest="RECEIVE_PASSENGER")
+        fsm.add_transition(source="CFP", dest="RECEIVE_BUS_PROPOSE")
+        fsm.add_transition(source="RECEIVE_BUS_PROPOSE", dest="CFP")
+        fsm.add_transition(source="RECEIVE_BUS_PROPOSE", dest="SELECT_BUS")
 
         self.add_behaviour(fsm)
