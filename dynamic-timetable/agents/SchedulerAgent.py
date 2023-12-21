@@ -4,6 +4,7 @@ from spade.agent import Agent
 from spade.behaviour import OneShotBehaviour, CyclicBehaviour, FSMBehaviour, State
 from spade.message import Message
 from spade.template import Template
+from logger import logger
 import datetime
 
 class SchedulerAgent(Agent):
@@ -16,15 +17,15 @@ class SchedulerAgent(Agent):
 
     class SchedulerBehaviour(FSMBehaviour):
         async def on_start(self):
-            print(f"FSM starting at initial state {self.current_state}")
+            logger.info(f"FSM starting at initial state {self.current_state}")
 
         async def on_end(self):
-            print(f"FSM finished at state {self.current_state}")
+            logger.info(f"FSM finished at state {self.current_state}")
             await self.agent.stop()
 
     class ReceiveTravelRequest(State):
         async def run(self):
-            print("Scheduler ReceiveTravelRequest running")
+            logger.debug("Scheduler ReceiveTravelRequest running")
 
             template = Template()
             template.set_metadata("performative", "cfp")
@@ -34,14 +35,14 @@ class SchedulerAgent(Agent):
             msg = await self.receive(timeout=10)
             if msg and template.match(msg):
                 self.agent.msg = msg
-                print("Message received with content: {}".format(msg.body))
+                logger.info("Message received with content: {}".format(msg.body))
                 self.set_next_state("SAVE_PASSENGER_INFO")
             else:
                 self.set_next_state("RECEIVE_PASSENGER")
 
     class SavePassengerInfo(State):
         async def run(self):
-            print("Scheduler SavePassengerInfo running")
+            logger.debug("Scheduler SavePassengerInfo running")
 
             msg_body = json.loads(self.agent.msg.body)
             start_point = msg_body.get('start_point', None)
@@ -51,6 +52,15 @@ class SchedulerAgent(Agent):
                 passenger_info = self.agent.PassengerInfo(passenger_jid, start_point, destination)
                 self.agent.passenger_info = passenger_info
 
+            # Ponizej rzeczy do testowania pasazera bez kodu busa
+            # class SBus:
+            #     def __init__(self) -> None:
+            #         self.id = 1
+                
+
+            # self.agent.selected_bus = SBus()
+            # logger.info(f"Selected bus: {self.agent.selected_bus.id}")
+            # self.set_next_state("SEND_TRAVELPLAN")
             self.set_next_state("CFP")
 
     class PassengerInfo():
@@ -61,7 +71,7 @@ class SchedulerAgent(Agent):
 
     class Cfp(State):
         async def run(self):
-            print("Scheduler Cfp running")
+            logger.debug("Scheduler Cfp running")
             # TODO wysyłanie do wszytkich busów, a nie tylko 1
             msg = Message(to="routing_bus@localhost")     # Instantiate the message
             msg.set_metadata("performative", "cfp")  # Set the "inform" FIPA performative
@@ -72,13 +82,13 @@ class SchedulerAgent(Agent):
             msg.body = body_dict                 # Set the message content
 
             await self.send(msg)
-            print("Message sent!")
+            logger.debug("Message sent!")
 
             self.set_next_state("RECEIVE_BUS_PROPOSE")
 
     class ReceiveBusPropose(State):
         async def run(self):
-            print("Scheduler ReceiveBusPropose running")
+            logger.debug("Scheduler ReceiveBusPropose running")
 
             template = Template()
             template.set_metadata("performative", "propose")
@@ -89,7 +99,7 @@ class SchedulerAgent(Agent):
             msg = await self.receive(timeout=10)
             if msg and template.match(msg):
                 self.agent.msg = msg
-                print("Message received with content: {}".format(msg.body))
+                logger.info("Message received with content: {}".format(msg.body))
                 # TODO zapisanie informacji z wiadomości
                 self.set_next_state("SELECT_BUS")
             else:
@@ -98,7 +108,7 @@ class SchedulerAgent(Agent):
 
     class SelectBus(State):
         async def run(self):
-            print("Scheduler SelectBus running")
+            logger.debug("Scheduler SelectBus running")
 
             # TODO algorytm wybierania busa
             # self.agent.selected_bus = #jakiś jid
@@ -107,7 +117,7 @@ class SchedulerAgent(Agent):
 
     class ReplyBus(State):
         async def run(self):
-            print("Scheduler ReplyBus running")
+            logger.debug("Scheduler ReplyBus running")
             msg = Message(to=self.agent.selected_bus)     # Instantiate the message
             msg.set_metadata("performative", "accept")  # Set the "inform" FIPA performative
             msg.set_metadata("ontology", "select_bus")
@@ -116,14 +126,15 @@ class SchedulerAgent(Agent):
             msg.body = body_dict                 # Set the message content
 
             await self.send(msg)
-            print("Message sent!")
+            logger.debug("Message sent!")
 
             self.set_next_state("RECEIVE_BUS_PROPOSE")
 
     class SendTravelPlan(State):
         async def run(self):
-            print("Scheduler SendTravelPlan running")
-            msg = Message(to=self.agent.passenger_info.passenger_jid)     # Instantiate the message
+            logger.debug("Scheduler SendTravelPlan running")
+
+            msg = Message(to=str(self.agent.passenger_info.passenger_jid))     # Instantiate the message
             msg.set_metadata("performative", "propose")  # Set the "inform" FIPA performative
             msg.set_metadata("ontology", "travel_request")
             msg.set_metadata("language", "JSON")        # Set the language of the message content
@@ -131,12 +142,12 @@ class SchedulerAgent(Agent):
             msg.body = body_dict                 # Set the message content
 
             await self.send(msg)
-            print("Message sent!")
+            logger.info("SEND_TRAVELPLAN - Message sent!")
 
             self.set_next_state("RECEIVE_PASSENGER")
 
     async def setup(self):
-        print("SchedulerAgent started")
+        logger.debug("SchedulerAgent started")
         fsm = self.SchedulerBehaviour()
 
         fsm.add_state(name="RECEIVE_PASSENGER", state=self.ReceiveTravelRequest(), initial=True)     
@@ -156,5 +167,8 @@ class SchedulerAgent(Agent):
         fsm.add_transition(source="SELECT_BUS", dest="REPLY_BUS")
         fsm.add_transition(source="REPLY_BUS", dest="SEND_TRAVELPLAN")
         fsm.add_transition(source="SEND_TRAVELPLAN", dest="RECEIVE_PASSENGER")
+
+        # Ponizej do testowania pasazera bez kodu busa
+        # fsm.add_transition(source="SAVE_PASSENGER_INFO", dest="SEND_TRAVELPLAN")
 
         self.add_behaviour(fsm)
