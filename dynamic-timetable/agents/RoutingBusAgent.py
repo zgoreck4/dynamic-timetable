@@ -135,7 +135,23 @@ class RoutingBusAgent(Agent):
             total_increase += increase
 
             return total_increase, new_path
+        
+    class WaitForDecision(State):
+        async def run(self):
+            print("*** RoutingBus: WaitForDecision running")
 
+            template = Template()
+            template.set_metadata("performative", "accept")  # Set the "inform" FIPA performative
+            template.set_metadata("ontology", "select_bus")
+            template.set_metadata("language", "JSON")        # Set the language of the message content
+
+            msg = await self.receive(timeout=10)
+            if msg and template.match(msg):
+                print("*** RoutingBus: New route accepted")
+                self.set_next_state("CALCULATE_ROUTE")
+            else:
+                print("*** RoutingBus: New route not accepted")
+                self.set_next_state("RECEIVE_CFP")
 
     async def setup(self):
         print("*** RoutingBus: started")
@@ -144,9 +160,11 @@ class RoutingBusAgent(Agent):
         fsm.add_state(name="RECEIVE_CFP", state=self.ReceiveCfp(), initial=True)
         fsm.add_state(name="GET_BUS_INFORMATION", state=self.GetBusInformation())
         fsm.add_state(name="CALCULATE_POTENTIAL_COST", state=self.CalculatePotentialCost())
+        fsm.add_state(name="WAIT_FOR_DECISION", state=self.WaitForDecision())
 
         fsm.add_transition(source="RECEIVE_CFP", dest="RECEIVE_CFP")
         fsm.add_transition(source="RECEIVE_CFP", dest="GET_BUS_INFORMATION")
         fsm.add_transition(source="GET_BUS_INFORMATION", dest="CALCULATE_POTENTIAL_COST")
+        fsm.add_transition(source="CALCULATE_POTENTIAL_COST", dest="WAIT_FOR_DECISION")
 
         self.add_behaviour(fsm)
