@@ -65,7 +65,6 @@ class RoutingBusAgent(Agent):
             )
 
             print("*** RoutingBus: increase_in_length = {}".format(increase_in_length))
-            print("*** RoutingBus: potential_new_path = {}".format(potential_new_path))
 
             self.agent.potential_new_path = potential_new_path
 
@@ -153,6 +152,16 @@ class RoutingBusAgent(Agent):
                 print("*** RoutingBus: New route not accepted")
                 self.set_next_state("RECEIVE_CFP")
 
+    class CalculateRoute(State):
+        async def run(self):
+            print("*** RoutingBus: CalculateRoute running")
+
+            self.agent.path = self.agent.potential_new_path
+            print("*** RoutingBus: new_path = {}".format(self.agent.path))
+
+            # Send msg to drivingbus
+            # msg = Message(to="drivingbus@localhost")     # Instantiate the message
+
     async def setup(self):
         print("*** RoutingBus: started")
         fsm = self.RoutingBusBehaviour()
@@ -161,10 +170,13 @@ class RoutingBusAgent(Agent):
         fsm.add_state(name="GET_BUS_INFORMATION", state=self.GetBusInformation())
         fsm.add_state(name="CALCULATE_POTENTIAL_COST", state=self.CalculatePotentialCost())
         fsm.add_state(name="WAIT_FOR_DECISION", state=self.WaitForDecision())
+        fsm.add_state(name="CALCULATE_ROUTE", state=self.CalculateRoute())
 
         fsm.add_transition(source="RECEIVE_CFP", dest="RECEIVE_CFP")
         fsm.add_transition(source="RECEIVE_CFP", dest="GET_BUS_INFORMATION")
         fsm.add_transition(source="GET_BUS_INFORMATION", dest="CALCULATE_POTENTIAL_COST")
         fsm.add_transition(source="CALCULATE_POTENTIAL_COST", dest="WAIT_FOR_DECISION")
+        fsm.add_transition(source="WAIT_FOR_DECISION", dest="CALCULATE_ROUTE")
+        fsm.add_transition(source="WAIT_FOR_DECISION", dest="RECEIVE_CFP")
 
         self.add_behaviour(fsm)
