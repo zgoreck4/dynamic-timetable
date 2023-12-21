@@ -37,7 +37,7 @@ class PassengerAgent(Agent):
             print("Message sent!")
 
             # stop agent from behaviour
-            await self.kill()
+            self.kill()
 
     async def setup(self):
         print("PassengerAgent started")
