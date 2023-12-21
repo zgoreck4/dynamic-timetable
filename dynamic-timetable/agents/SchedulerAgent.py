@@ -105,6 +105,36 @@ class SchedulerAgent(Agent):
 
             # self.set_next_state("RECEIVE_PASSENGER")
 
+    class ReplyBus(State):
+        async def run(self):
+            print("Scheduler ReplyBus running")
+            msg = Message(to=self.agent.selected_bus)     # Instantiate the message
+            msg.set_metadata("performative", "accept")  # Set the "inform" FIPA performative
+            msg.set_metadata("ontology", "select_bus")
+            msg.set_metadata("language", "JSON")        # Set the language of the message content
+            body_dict = json.dumps({"accepted": True})  
+            msg.body = body_dict                 # Set the message content
+
+            await self.send(msg)
+            print("Message sent!")
+
+            self.set_next_state("RECEIVE_BUS_PROPOSE")
+
+    class SendTravelPlan(State):
+        async def run(self):
+            print("Scheduler SendTravelPlan running")
+            msg = Message(to=self.agent.passenger_info.passenger_jid)     # Instantiate the message
+            msg.set_metadata("performative", "propose")  # Set the "inform" FIPA performative
+            msg.set_metadata("ontology", "travel_request")
+            msg.set_metadata("language", "JSON")        # Set the language of the message content
+            body_dict = json.dumps({"bus_id": self.agent.selected_bus.id})  
+            msg.body = body_dict                 # Set the message content
+
+            await self.send(msg)
+            print("Message sent!")
+
+            self.set_next_state("RECEIVE_PASSENGER")
+
     async def setup(self):
         print("SchedulerAgent started")
         fsm = self.SchedulerBehaviour()
@@ -114,6 +144,8 @@ class SchedulerAgent(Agent):
         fsm.add_state(name="CFP", state=self.Cfp())
         fsm.add_state(name="RECEIVE_BUS_PROPOSE", state=self.ReceiveBusPropose())
         fsm.add_state(name="SELECT_BUS", state=self.SelectBus())
+        fsm.add_state(name="REPLY_BUS", state=self.ReplyBus())
+        fsm.add_state(name="SEND_TRAVELPLAN", state=self.SendTravelPlan())
         
         fsm.add_transition(source="RECEIVE_PASSENGER", dest="RECEIVE_PASSENGER")
         fsm.add_transition(source="RECEIVE_PASSENGER", dest="SAVE_PASSENGER_INFO")
@@ -121,5 +153,8 @@ class SchedulerAgent(Agent):
         fsm.add_transition(source="CFP", dest="RECEIVE_BUS_PROPOSE")
         fsm.add_transition(source="RECEIVE_BUS_PROPOSE", dest="CFP")
         fsm.add_transition(source="RECEIVE_BUS_PROPOSE", dest="SELECT_BUS")
+        fsm.add_transition(source="SELECT_BUS", dest="REPLY_BUS")
+        fsm.add_transition(source="REPLY_BUS", dest="SEND_TRAVELPLAN")
+        fsm.add_transition(source="SEND_TRAVELPLAN", dest="RECEIVE_PASSENGER")
 
         self.add_behaviour(fsm)

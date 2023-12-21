@@ -8,6 +8,7 @@ class RoutingBusAgent(Agent):
     def __init__(self, jid, password):
         super().__init__(jid, password)
         self.active = False
+        self.id = None # pewnie powinniśmy zainicjalizować
 
     async def setup(self):
         print("RoutingBusAgent started")
