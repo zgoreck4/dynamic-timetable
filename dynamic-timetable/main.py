@@ -10,7 +10,8 @@ async def main():
     passengeragent = PassengerAgent("passenger@localhost", "passenger")
     await passengeragent.start()
 
-    routingbusagent = RoutingBusAgent("routing_bus@localhost", "routing_bus")
+    initial_path = [(1, 1), (5, 5), (10, 10), (15, 15), (20, 20)]
+    routingbusagent = RoutingBusAgent("routing_bus@localhost", "routing_bus", initial_path)
     await routingbusagent.start()
 
     await spade.wait_until_finished(scheduleragent)

@@ -2,29 +2,30 @@ from spade.agent import Agent
 from spade.behaviour import OneShotBehaviour, CyclicBehaviour, FSMBehaviour, State
 from spade.message import Message
 from spade.template import Template
+from logger import logger
 import json
 import random
 
 
 class RoutingBusAgent(Agent):
-    def __init__(self, jid, password):
+    def __init__(self, jid, password, path):
         super().__init__(jid, password)
         self.active = False
         self.id = jid
-        self.path = [(1, 1), (2, 2), (3, 3), (4, 4), (5, 5)] # TODO - jakoś inaczej inicjalizować
+        self.path = path
         self.potential_new_path = None
 
     class RoutingBusBehaviour(FSMBehaviour):
         async def on_start(self):
-            print(f"*** RoutingBus: FSM starting at initial state {self.current_state}")
+            logger.info(f"RoutingBus {self.agent.id}: FSM starting at initial state {self.current_state}")
 
         async def on_end(self):
-            print(f"*** RoutingBus: FSM finished at state {self.current_state}")
+            logger.info(f"RoutingBus {self.agent.id}: FSM finished at state {self.current_state}")
             await self.agent.stop()
 
     class ReceiveCfp(State):
         async def run(self):
-            print("*** RoutingBus: ReceiveCfp running")
+            logger.debug(f"RoutingBus {self.agent.id}: ReceiveCfp running")
 
             template = Template()
             template.set_metadata("performative", "cfp")  # Set the "inform" FIPA performative
@@ -34,26 +35,26 @@ class RoutingBusAgent(Agent):
             msg = await self.receive(timeout=10)
             if msg and template.match(msg):
                 self.agent.msg = msg
-                print("*** RoutingBus: Message received with content: {}".format(msg.body))
+                logger.info(f"RoutingBus {self.agent.id}: Message received with content: {msg.body}")
                 self.set_next_state("GET_BUS_INFORMATION")
             else:
                 self.set_next_state("RECEIVE_CFP")
 
     class GetBusInformation(State):
         async def run(self):
-            print("*** RoutingBus: GetBusInformation running")
+            logger.debug(f"RoutingBus {self.agent.id}: GetBusInformation running")
 
             x = round(random.random()*50, 2)
             y = round(random.random()*50, 2)
             self.position = [x, y]
 
-            print("*** RoutingBus: Position: {}".format(self.position))
+            logger.info(f"RoutingBus {self.agent.id}: Position: {self.position}")
 
             self.set_next_state("CALCULATE_POTENTIAL_COST")
 
     class CalculatePotentialCost(State):
         async def run(self):
-            print("*** RoutingBus: CalculatePotentialCost running")
+            logger.debug(f"RoutingBus {self.agent.id}: CalculatePotentialCost running")
 
             msg_body = json.loads(self.agent.msg.body)
             start_point = msg_body.get('passenger_info', None).get('start_point', None)
@@ -64,7 +65,7 @@ class RoutingBusAgent(Agent):
                 [start_point, destination]
             )
 
-            print("*** RoutingBus: increase_in_length = {}".format(increase_in_length))
+            logger.info(f"RoutingBus {self.agent.id}: increase_in_length = {increase_in_length}")
 
             self.agent.potential_new_path = potential_new_path
 
@@ -77,7 +78,7 @@ class RoutingBusAgent(Agent):
             msg.body = body_dict                 # Set the message content
 
             await self.send(msg)
-            print("*** RoutingBus: potential_cost sent!")
+            logger.debug(f"RoutingBus {increase_in_length}: potential_cost sent!")
 
             self.set_next_state("WAIT_FOR_DECISION")
 
@@ -137,7 +138,7 @@ class RoutingBusAgent(Agent):
         
     class WaitForDecision(State):
         async def run(self):
-            print("*** RoutingBus: WaitForDecision running")
+            logger.debug(f"RoutingBus {self.agent.id}: WaitForDecision running")
 
             template = Template()
             template.set_metadata("performative", "accept")  # Set the "inform" FIPA performative
@@ -146,24 +147,24 @@ class RoutingBusAgent(Agent):
 
             msg = await self.receive(timeout=10)
             if msg and template.match(msg):
-                print("*** RoutingBus: New route accepted")
+                logger.info(f"RoutingBus {self.agent.id}: New route accepted")
                 self.set_next_state("CALCULATE_ROUTE")
             else:
-                print("*** RoutingBus: New route not accepted")
+                logger.info(f"RoutingBus {self.agent.id}: New route not accepted")
                 self.set_next_state("RECEIVE_CFP")
 
     class CalculateRoute(State):
         async def run(self):
-            print("*** RoutingBus: CalculateRoute running")
+            logger.debug(f"RoutingBus {self.agent.id}: CalculateRoute running")
 
             self.agent.path = self.agent.potential_new_path
-            print("*** RoutingBus: new_path = {}".format(self.agent.path))
+            logger.info(f"RoutingBus {self.agent.id}: new_path = {self.agent.path}")
 
             # Send msg to drivingbus
             # msg = Message(to="drivingbus@localhost")     # Instantiate the message
 
     async def setup(self):
-        print("*** RoutingBus: started")
+        logger.debug(f"RoutingBus {self.id}: started")
         fsm = self.RoutingBusBehaviour()
 
         fsm.add_state(name="RECEIVE_CFP", state=self.ReceiveCfp(), initial=True)
