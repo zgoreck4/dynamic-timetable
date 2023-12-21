@@ -11,8 +11,9 @@ class PassengerAgent(Agent):
         self.selectDestination()
         self.bus_id = None
 
+    # TODO: zmienić na zachowanie
     def selectDestination(self):
-        # można też random
+        # można też, aby miesjce docelowe było random
         # TODO: dodać sprawdzanie inputów
         print("Destination 1. passenger")
         x_dest = float(input("x coordinate: "))
@@ -27,6 +28,7 @@ class PassengerAgent(Agent):
             print("Passenger RequestForTravel running")
             msg = Message(to="scheduler@localhost")     # Instantiate the message
             msg.set_metadata("performative", "cfp")  # Set the "inform" FIPA performative
+            msg.set_metadata("ontology", "travel_request")
             msg.set_metadata("language", "JSON")        # Set the language of the message content
             body_dict = {"start_point": self.agent.start_point, "destination": self.agent.destination}
             msg.body = json.dumps(body_dict)                   # Set the message content
