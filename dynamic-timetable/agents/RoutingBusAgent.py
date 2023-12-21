@@ -3,6 +3,8 @@ from spade.behaviour import OneShotBehaviour, CyclicBehaviour, FSMBehaviour, Sta
 from spade.message import Message
 from spade.template import Template
 import json
+import random
+
 
 class RoutingBusAgent(Agent):
     def __init__(self, jid, password):
@@ -35,12 +37,26 @@ class RoutingBusAgent(Agent):
             else:
                 self.set_next_state("RECEIVE_CFP")
 
+    class GetBusInformation(State):
+        async def run(self):
+            print("*** RoutingBus: GetBusInformation running")
+
+            x = round(random.random()*50, 2)
+            y = round(random.random()*50, 2)
+            self.position = [x, y]
+
+            print("*** RoutingBus: Position: {}".format(self.position))
+
+            self.set_next_state("CALCULATE_POTENTIAL_COST")
+
     async def setup(self):
         print("*** RoutingBus: started")
         fsm = self.RoutingBusBehaviour()
 
         fsm.add_state(name="RECEIVE_CFP", state=self.ReceiveCfp(), initial=True)
+        fsm.add_state(name="GET_BUS_INFORMATION", state=self.GetBusInformation())
 
         fsm.add_transition(source="RECEIVE_CFP", dest="RECEIVE_CFP")
+        fsm.add_transition(source="RECEIVE_CFP", dest="GET_BUS_INFORMATION")
 
         self.add_behaviour(fsm)
