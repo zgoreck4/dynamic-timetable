@@ -78,7 +78,7 @@ class RoutingBusAgent(Agent):
             msg.body = body_dict                 # Set the message content
 
             await self.send(msg)
-            logger.debug(f"RoutingBus {increase_in_length}: potential_cost sent!")
+            logger.debug(f"RoutingBus {self.agent.id}: potential_cost sent!")
 
             self.set_next_state("WAIT_FOR_DECISION")
 

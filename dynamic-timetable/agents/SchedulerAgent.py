@@ -8,12 +8,13 @@ from logger import logger
 import datetime
 
 class SchedulerAgent(Agent):
-    def __init__(self, jid, password):
+    def __init__(self, jid, password, buses):
         super().__init__(jid, password)
         self.msg = None
         self.passenger_info = None
         self.selected_bus = None
-
+        self.buses = buses
+        self.costs = {}
 
     class SchedulerBehaviour(FSMBehaviour):
         async def on_start(self):
@@ -72,17 +73,17 @@ class SchedulerAgent(Agent):
     class Cfp(State):
         async def run(self):
             logger.debug("Scheduler Cfp running")
-            # TODO wysyłanie do wszytkich busów, a nie tylko 1
-            msg = Message(to="routing_bus@localhost")     # Instantiate the message
-            msg.set_metadata("performative", "cfp")  # Set the "inform" FIPA performative
-            msg.set_metadata("ontology", "select_bus")
-            msg.set_metadata("language", "JSON")        # Set the language of the message content
-            # chyba zmienia "passenger_jid": passenger@localhost na "passenger_jid": ["passenger", "localhost", null]. Czy to nie problem?
-            body_dict = json.dumps({"passenger_info": self.agent.passenger_info.__dict__})  
-            msg.body = body_dict                 # Set the message content
+            for bus in self.agent.buses:
+                msg = Message(to=bus)     # Instantiate the message
+                msg.set_metadata("performative", "cfp")  # Set the "inform" FIPA performative
+                msg.set_metadata("ontology", "select_bus")
+                msg.set_metadata("language", "JSON")        # Set the language of the message content
+                # chyba zmienia "passenger_jid": passenger@localhost na "passenger_jid": ["passenger", "localhost", null]. Czy to nie problem?
+                body_dict = json.dumps({"passenger_info": self.agent.passenger_info.__dict__})  
+                msg.body = body_dict                 # Set the message content
 
-            await self.send(msg)
-            logger.debug("Message sent!")
+                await self.send(msg)
+                logger.debug("Message sent!")
 
             self.set_next_state("RECEIVE_BUS_PROPOSE")
 
@@ -96,19 +97,25 @@ class SchedulerAgent(Agent):
             # można dodać od koga ta wiadomość ma być (?)
             
             # TODO dodać odbieranie wiadomości od kilku busów
-            msg = await self.receive(timeout=10)
-            if msg and template.match(msg):
-                self.agent.msg = msg
-                logger.info("Message received with content: {}".format(msg.body))
-                # TODO zapisanie informacji z wiadomości
-                self.set_next_state("SELECT_BUS")
-            else:
-                # można wpaść w nieskończoną pętle, można by dodać zwrot informacji do pasażera, że nie można przydzielić busa
-                self.set_next_state("CFP")
+            for _ in range(len(self.agent.buses)):
+                msg = await self.receive(timeout=10)
+                if msg and template.match(msg):
+                    self.agent.msg = msg
+                    logger.info("Message received with content: {}".format(msg.body))
+                    # TODO zapisanie informacji z wiadomości
+                    msg_body = json.loads(self.agent.msg.body)
+                    self.agent.costs[msg_body.get("id")] = msg_body.get("potential_cost")
+                else:
+                    # można wpaść w nieskończoną pętle, można by dodać zwrot informacji do pasażera, że nie można przydzielić busa
+                    self.set_next_state("CFP")
+
+            self.set_next_state("SELECT_BUS")
 
     class SelectBus(State):
         async def run(self):
             logger.debug("Scheduler SelectBus running")
+
+            logger.debug(f"Scheduler: costs = {self.agent.costs}")
 
             # TODO algorytm wybierania busa
             # self.agent.selected_bus = #jakiś jid
