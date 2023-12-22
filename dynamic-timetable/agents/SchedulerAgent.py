@@ -117,10 +117,15 @@ class SchedulerAgent(Agent):
 
             logger.debug(f"Scheduler: costs = {self.agent.costs}")
 
-            # TODO algorytm wybierania busa
-            # self.agent.selected_bus = #jakiś jid
+            min_cost = float('inf')
+            for jid, cost in self.agent.costs.items():
+                if cost < min_cost:
+                    min_cost = cost
+                    self.agent.selected_bus = jid
 
-            # self.set_next_state("RECEIVE_PASSENGER")
+            logger.info(f"Scheduler: selected {self.agent.selected_bus} with cost {min_cost}")
+
+            self.set_next_state("REPLY_BUS")
 
     class ReplyBus(State):
         async def run(self):
@@ -135,7 +140,7 @@ class SchedulerAgent(Agent):
             await self.send(msg)
             logger.debug("Message sent!")
 
-            self.set_next_state("RECEIVE_BUS_PROPOSE")
+            self.set_next_state("SEND_TRAVELPLAN")
 
     class SendTravelPlan(State):
         async def run(self):
@@ -145,7 +150,7 @@ class SchedulerAgent(Agent):
             msg.set_metadata("performative", "propose")  # Set the "inform" FIPA performative
             msg.set_metadata("ontology", "travel_request")
             msg.set_metadata("language", "JSON")        # Set the language of the message content
-            body_dict = json.dumps({"bus_id": self.agent.selected_bus.id})  
+            body_dict = json.dumps({"bus_id": self.agent.selected_bus})
             msg.body = body_dict                 # Set the message content
 
             await self.send(msg)
