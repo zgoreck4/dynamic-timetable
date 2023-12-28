@@ -4,9 +4,6 @@ from agents.SchedulerAgent import SchedulerAgent
 from agents.RoutingBusAgent import RoutingBusAgent
 
 async def main():
-    passengeragent = PassengerAgent("passenger@localhost", "passenger")
-    await passengeragent.start()
-
     initial_path = [(0, 0), (5, 5), (10, 10), (15, 15), (20, 20)]
     routingbusagent1 = RoutingBusAgent("routing_bus1@localhost", "routing_bus1", initial_path)
     await routingbusagent1.start()
@@ -21,6 +18,9 @@ async def main():
         [str(routingbusagent1.jid), str(routingbusagent2.jid)]
     )
     await scheduleragent.start()
+
+    passengeragent = PassengerAgent("passenger@localhost", "passenger")
+    await passengeragent.start()
 
     await spade.wait_until_finished(scheduleragent)
     await scheduleragent.stop()
