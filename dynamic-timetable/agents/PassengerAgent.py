@@ -1,7 +1,7 @@
 from agents.utils import randomize_map_coordinates
 from logger import logger
 from spade.agent import Agent
-from spade.behaviour import FSMBehaviour, State
+from spade.behaviour import FSMBehaviour, State, CyclicBehaviour
 from spade.message import Message
 from spade.template import Template
 import json
@@ -17,13 +17,15 @@ TRAVELING_TIME = 5
 TRAVELING_STEP = 1
 TRAVELING_COUNTER = 5
 BUS_NOT_ARRIVING_CHANCES = 0.05
-BUS_BRAKING_DOWN_CHANCES = 0.01
-USER_RETRY_AFTER_FAILED_TRIP_CHANCES = 0.5
+BUS_BRAKING_DOWN_CHANCES = 0.6
+# BUS_BRAKING_DOWN_CHANCES = 0.01
+USER_RETRY_AFTER_FAILED_TRIP_CHANCES = 0.2
 
 
 class PassengerAgent(Agent):
     def __init__(self, jid: str, password: str):
         super().__init__(jid, password)
+        self.main_beh = None
         self.starting_point = randomize_map_coordinates(MAP_COORDINATE_LIMIT)
         self.destination = None
         self.bus_id = None
@@ -37,7 +39,6 @@ class PassengerAgent(Agent):
 
         async def on_end(self) -> None:
             logger.info(f"Passsenger FSM finished at state {self.current_state}")
-            await self.agent.stop()
 
     class SelectDestination(State):
         def select_destination(self) -> tuple[float, float]:
@@ -95,12 +96,11 @@ class PassengerAgent(Agent):
 
         async def run(self) -> None:
             logger.debug("Passenger: WaitForBus running")
-            if self._wait_for_bus():
-                self.agent.travel_counter = 0
-                self.set_next_state("TRAVEL")
-            else:
-                logger.info(f"Bus did not arrived in time due to technical problems. Passenger {self.agent.passenger_id} is starting looking for a next bus.")
-                self.set_next_state("SELECT_DESTINATION")
+            self.agent._add_handle_bus_fail_beh()
+            logger.info(f"Passenger {self.agent.passenger_id} is waiting for the bus {self.agent.bus_id}")
+            time.sleep(BUS_AWAITING_TME)
+            self.agent.travel_counter = 0
+            self.set_next_state("TRAVEL")
 
     class PassengerTravel(State):
         async def run(self) -> None:
@@ -112,11 +112,19 @@ class PassengerAgent(Agent):
                 self.set_next_state("EXIT_BUS_SUCCESSFULL")
             else:
                 self.agent.travel_counter += 1
-                self.set_next_state("BUS_FAILURE_MSG")
+                self.set_next_state("TRAVEL")
 
     class ExitBus(State):
         async def run(self) -> None:
+            logger.debug("Passenger: ExitBus running")
             await self.agent.stop()
+
+    class HandleBusFailBeh(FSMBehaviour):
+        async def on_start(self) -> None:
+            logger.info(f"Passenger FSM HandleBusFailBeh starting at initial state {self.current_state}")
+
+        async def on_end(self) -> None:
+            logger.info(f"Passsenger FSM HandleBusFailBeh finished at state {self.current_state}")
 
     class ReceiveBusFailureMsg(State):
         async def run(self) -> None:
@@ -132,13 +140,14 @@ class PassengerAgent(Agent):
                 # self.agent.msg = msg
                 # logger.info(f"Passenger {self.agent.passenger_id}: Message received with content: {msg.body}")
                 # self.set_next_state("HANDLE_BUS_FAILURE")
-            random_value = random.random()
-            print(random_value)            
-            if random_value < BUS_BRAKING_DOWN_CHANCES: # only for simulation
+            time.sleep(2)  # only for simulation
+            if random.random() < BUS_BRAKING_DOWN_CHANCES: # only for simulation
                 logger.info("Passenger: ReceiveBusFailureMsg - Bus broke down during the trip.")
+                self.agent.main_beh.kill()
+                self.agent.main_beh = None
                 self.set_next_state("HANDLE_BUS_FAILURE")
             else:
-                self.set_next_state("TRAVEL")
+                self.set_next_state("BUS_FAILURE_MSG")
 
     class HandleBusFailure(State):
         def _is_user_willing_to_retry(self) -> bool:
@@ -149,15 +158,13 @@ class PassengerAgent(Agent):
             self.agent.starting_point = randomize_map_coordinates(MAP_COORDINATE_LIMIT)
             if self._is_user_willing_to_retry():
                 logger.info(f"Passenger {self.agent.passenger_id} is starting looking for a next bus from new startng location: {self.agent.starting_point}")
-                self.set_next_state("SELECT_DESTINATION")
+                self.agent._add_main_beh()
+                self.kill()
             else:
                 logger.info(f"Passenger {self.agent.passenger_id} didn't agree to find a new bus.")
                 self.set_next_state("EXIT_BUS_FAILED")
 
-
-    async def setup(self) -> None:
-        logger.debug("PassengerAgent started")
-
+    def _add_main_beh(self) -> None:
         fsm = self.PassengerBehaviour()
 
         fsm.add_state(name="SELECT_DESTINATION", state=self.SelectDestination(), initial=True)
@@ -165,22 +172,32 @@ class PassengerAgent(Agent):
         fsm.add_state(name="AWAIT_TRAVEL_PLAN", state=self.AwaitTravelPlan())
         fsm.add_state(name="WAIT_FOR_BUS", state=self.WaitForBus())
         fsm.add_state(name="TRAVEL", state=self.PassengerTravel())
-        fsm.add_state(name="BUS_FAILURE_MSG", state=self.ReceiveBusFailureMsg())
-        fsm.add_state(name="HANDLE_BUS_FAILURE", state=self.HandleBusFailure())
         fsm.add_state(name="EXIT_BUS_SUCCESSFULL", state=self.ExitBus())
-        fsm.add_state(name="EXIT_BUS_FAILED", state=self.ExitBus())
         
         fsm.add_transition(source="SELECT_DESTINATION", dest="REQUEST_TRAVEL")
         fsm.add_transition(source="REQUEST_TRAVEL", dest="AWAIT_TRAVEL_PLAN")
         fsm.add_transition(source="AWAIT_TRAVEL_PLAN", dest="SELECT_DESTINATION")
         fsm.add_transition(source="AWAIT_TRAVEL_PLAN", dest="WAIT_FOR_BUS")
-        fsm.add_transition(source="WAIT_FOR_BUS", dest="SELECT_DESTINATION")
         fsm.add_transition(source="WAIT_FOR_BUS", dest="TRAVEL")
-        fsm.add_transition(source="TRAVEL", dest="BUS_FAILURE_MSG")
         fsm.add_transition(source="TRAVEL", dest="EXIT_BUS_SUCCESSFULL")
-        fsm.add_transition(source="BUS_FAILURE_MSG", dest="TRAVEL")
-        fsm.add_transition(source="BUS_FAILURE_MSG", dest="HANDLE_BUS_FAILURE")
-        fsm.add_transition(source="HANDLE_BUS_FAILURE", dest="SELECT_DESTINATION")
-        fsm.add_transition(source="HANDLE_BUS_FAILURE", dest="EXIT_BUS_FAILED")
 
-        self.add_behaviour(fsm)
+        self.main_beh = fsm
+        self.add_behaviour(self.main_beh)
+
+    def _add_handle_bus_fail_beh(self) -> None:
+        fsm_handle_fail_bus = self.HandleBusFailBeh()
+
+        fsm_handle_fail_bus.add_state(name="BUS_FAILURE_MSG", state=self.ReceiveBusFailureMsg(), initial=True)
+        fsm_handle_fail_bus.add_state(name="HANDLE_BUS_FAILURE", state=self.HandleBusFailure())
+        fsm_handle_fail_bus.add_state(name="EXIT_BUS_FAILED", state=self.ExitBus())
+        
+        fsm_handle_fail_bus.add_transition(source="BUS_FAILURE_MSG", dest="BUS_FAILURE_MSG")
+        fsm_handle_fail_bus.add_transition(source="BUS_FAILURE_MSG", dest="HANDLE_BUS_FAILURE")
+        fsm_handle_fail_bus.add_transition(source="HANDLE_BUS_FAILURE", dest="EXIT_BUS_FAILED")
+
+        self.add_behaviour(fsm_handle_fail_bus)
+
+    async def setup(self) -> None:
+        logger.debug("PassengerAgent started")
+
+        self._add_main_beh()
