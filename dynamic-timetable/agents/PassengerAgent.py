@@ -16,16 +16,16 @@ BUS_AWAITING_TME = 3
 TRAVELING_TIME = 5
 TRAVELING_STEP = 1
 TRAVELING_COUNTER = 5
-BUS_NOT_ARRIVING_CHANCES = 0.05
-BUS_BRAKING_DOWN_CHANCES = 0.6
-# BUS_BRAKING_DOWN_CHANCES = 0.01
-USER_RETRY_AFTER_FAILED_TRIP_CHANCES = 0.2
+CHANGE_PLAN_CHANCES = 0.05
+BUS_BRAKING_DOWN_CHANCES = 0.01
+USER_RETRY_AFTER_FAILED_TRIP_CHANCES = 0.5
 
 
 class PassengerAgent(Agent):
     def __init__(self, jid: str, password: str):
         super().__init__(jid, password)
         self.main_beh = None
+        self.change_plan_beh = None
         self.starting_point = randomize_map_coordinates(MAP_COORDINATE_LIMIT)
         self.destination = None
         self.bus_id = None
@@ -85,18 +85,12 @@ class PassengerAgent(Agent):
                 self.set_next_state("SELECT_DESTINATION") 
 
     class WaitForBus(State):
-        def _wait_for_bus(self) -> bool:
-            """
-            Simulate waiting for the bus (wait for hardcoded time)
-            """
-            logger.info(f"Passenger {self.agent.passenger_id} is waiting for the bus {self.agent.bus_id}")
-            time.sleep(BUS_AWAITING_TME)
-
-            return random.random() > BUS_NOT_ARRIVING_CHANCES
 
         async def run(self) -> None:
             logger.debug("Passenger: WaitForBus running")
             self.agent._add_handle_bus_fail_beh()
+            self.agent.change_plan_beh = self.agent.ChangePlan()
+            self.agent.add_behaviour(self.agent.change_plan_beh)
             logger.info(f"Passenger {self.agent.passenger_id} is waiting for the bus {self.agent.bus_id}")
             time.sleep(BUS_AWAITING_TME)
             self.agent.travel_counter = 0
@@ -158,11 +152,34 @@ class PassengerAgent(Agent):
             self.agent.starting_point = randomize_map_coordinates(MAP_COORDINATE_LIMIT)
             if self._is_user_willing_to_retry():
                 logger.info(f"Passenger {self.agent.passenger_id} is starting looking for a next bus from new startng location: {self.agent.starting_point}")
+                self.agent.change_plan_beh.kill()
+                self.agent.change_plan_beh = None
                 self.agent._add_main_beh()
                 self.kill()
             else:
                 logger.info(f"Passenger {self.agent.passenger_id} didn't agree to find a new bus.")
                 self.set_next_state("EXIT_BUS_FAILED")
+
+    class ChangePlan(CyclicBehaviour):
+        async def run(self):
+            logger.debug("Passenger: ChangePlan running")
+            time.sleep(2) # only for simulation
+            if random.random() < CHANGE_PLAN_CHANCES:
+                self.agent.main_beh.kill()
+                self.agent.main_beh = None
+
+                msg = Message(to=self.agent.bus_id)  
+                msg.set_metadata("performative", "inform")
+                msg.set_metadata("ontology", "resignation")
+                msg.set_metadata("language", "JSON")          
+                body_dict = {
+                    "resignation": True, "destination": self.agent.destination}
+                msg.body = json.dumps(body_dict)  
+
+                await self.send(msg)
+                logger.info(f"Passenger: Message sent with content: {body_dict}")
+
+                await self.agent.stop()       
 
     def _add_main_beh(self) -> None:
         fsm = self.PassengerBehaviour()
