@@ -94,22 +94,21 @@ class SchedulerAgent(Agent):
             template = Template()
             template.set_metadata("performative", "propose")
             template.set_metadata("ontology", "select_bus")
-            # można dodać od koga ta wiadomość ma być (?)
             
-            # TODO dodać odbieranie wiadomości od kilku busów
             for _ in range(len(self.agent.buses)):
                 msg = await self.receive(timeout=10)
                 if msg and template.match(msg):
                     self.agent.msg = msg
                     logger.info("Scheduler: ReceiveBusPropose - Message received with content: {}".format(msg.body))
-                    # TODO zapisanie informacji z wiadomości
                     msg_body = json.loads(self.agent.msg.body)
                     self.agent.costs[msg_body.get("id")] = msg_body.get("potential_cost")
-                else:
-                    # można wpaść w nieskończoną pętle, można by dodać zwrot informacji do pasażera, że nie można przydzielić busa
-                    self.set_next_state("CFP")
+            if bool(self.agent.costs): # check if a response has been received from at least 1 bus
+                self.set_next_state("SELECT_BUS")
+            else:
+                self.set_next_state("CFP")
 
-            self.set_next_state("SELECT_BUS")
+        async def on_start(self):
+            self.agent.costs = {}
 
     class SelectBus(State):
         async def run(self):
