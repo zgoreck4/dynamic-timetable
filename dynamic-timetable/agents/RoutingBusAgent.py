@@ -145,7 +145,7 @@ class RoutingBusAgent(Agent):
             template.set_metadata("ontology", "select_bus")
             template.set_metadata("language", "JSON")        # Set the language of the message content
 
-            msg = await self.receive(timeout=10)
+            msg = await self.receive(timeout=5)
             if msg and template.match(msg):
                 logger.info(f"RoutingBus {self.agent.id}: New route accepted")
                 self.set_next_state("CALCULATE_ROUTE")
@@ -163,6 +163,8 @@ class RoutingBusAgent(Agent):
             # Send msg to drivingbus
             # msg = Message(to="drivingbus@localhost")     # Instantiate the message
 
+            self.set_next_state("RECEIVE_CFP")
+
     async def setup(self):
         logger.debug(f"RoutingBus {self.id}: started")
         fsm = self.RoutingBusBehaviour()
@@ -177,7 +179,8 @@ class RoutingBusAgent(Agent):
         fsm.add_transition(source="RECEIVE_CFP", dest="GET_BUS_INFORMATION")
         fsm.add_transition(source="GET_BUS_INFORMATION", dest="CALCULATE_POTENTIAL_COST")
         fsm.add_transition(source="CALCULATE_POTENTIAL_COST", dest="WAIT_FOR_DECISION")
-        fsm.add_transition(source="WAIT_FOR_DECISION", dest="CALCULATE_ROUTE")
         fsm.add_transition(source="WAIT_FOR_DECISION", dest="RECEIVE_CFP")
+        fsm.add_transition(source="WAIT_FOR_DECISION", dest="CALCULATE_ROUTE")
+        fsm.add_transition(source="CALCULATE_ROUTE", dest="RECEIVE_CFP")
 
         self.add_behaviour(fsm)

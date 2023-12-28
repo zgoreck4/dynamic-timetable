@@ -96,7 +96,7 @@ class SchedulerAgent(Agent):
             template.set_metadata("ontology", "select_bus")
             
             for _ in range(len(self.agent.buses)):
-                msg = await self.receive(timeout=10)
+                msg = await self.receive(timeout=5)
                 if msg and template.match(msg):
                     self.agent.msg = msg
                     logger.info("Scheduler: ReceiveBusPropose - Message received with content: {}".format(msg.body))
