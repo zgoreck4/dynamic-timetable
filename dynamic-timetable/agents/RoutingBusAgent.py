@@ -165,6 +165,24 @@ class RoutingBusAgent(Agent):
 
             self.set_next_state("RECEIVE_CFP")
 
+    class ReceivePassengerMsg(CyclicBehaviour):
+        async def run(self):
+            logger.debug(f"RoutingBus {self.agent.id}: ReceivePassengerMsg running")
+            template = Template()
+            template.set_metadata("performative", "inform")  # Set the "inform" FIPA performative
+            template.set_metadata("ontology", "resignation")
+            template.set_metadata("language", "JSON")        # Set the language of the message content
+
+            msg = await self.receive(timeout=10)
+            if msg and template.match(msg):
+                logger.info("RoutingBus: ReceivePassengerMsg - Message received with content: {}".format(msg.body))
+                msg_body = json.loads(msg.body)
+                resignation = msg_body.get('resignation', None)
+                if resignation:                    
+                    destination = msg_body.get('destination', None)
+                    self.agent.path.remove(destination)
+                    logger.info(f"RoutingBus: ReceivePassengerMsg - Removed point {destination} from path")
+
     async def setup(self):
         logger.debug(f"RoutingBus {self.id}: started")
         fsm = self.RoutingBusBehaviour()
@@ -184,3 +202,5 @@ class RoutingBusAgent(Agent):
         fsm.add_transition(source="CALCULATE_ROUTE", dest="RECEIVE_CFP")
 
         self.add_behaviour(fsm)
+
+        self.add_behaviour(self.ReceivePassengerMsg())
