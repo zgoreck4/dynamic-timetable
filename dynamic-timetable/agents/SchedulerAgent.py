@@ -36,7 +36,7 @@ class SchedulerAgent(Agent):
             msg = await self.receive(timeout=10)
             if msg and template.match(msg):
                 self.agent.msg = msg
-                logger.info("Scheduler: Message received with content: {}".format(msg.body))
+                logger.info("Scheduler: ReceiveTravelRequest - Message received with content: {}".format(msg.body))
                 self.set_next_state("SAVE_PASSENGER_INFO")
             else:
                 self.set_next_state("RECEIVE_PASSENGER")
@@ -83,7 +83,7 @@ class SchedulerAgent(Agent):
                 msg.body = body_dict                 # Set the message content
 
                 await self.send(msg)
-                logger.debug("Scheduler: Message sent!")
+                logger.debug("Scheduler: Message sent")
 
             self.set_next_state("RECEIVE_BUS_PROPOSE")
 
@@ -101,7 +101,7 @@ class SchedulerAgent(Agent):
                 msg = await self.receive(timeout=10)
                 if msg and template.match(msg):
                     self.agent.msg = msg
-                    logger.info("Scheduler: Message received with content: {}".format(msg.body))
+                    logger.info("Scheduler: ReceiveBusPropose - Message received with content: {}".format(msg.body))
                     # TODO zapisanie informacji z wiadomości
                     msg_body = json.loads(self.agent.msg.body)
                     self.agent.costs[msg_body.get("id")] = msg_body.get("potential_cost")

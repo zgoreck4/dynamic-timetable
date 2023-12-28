@@ -45,6 +45,7 @@ class PassengerAgent(Agent):
             return randomize_map_coordinates(MAP_COORDINATE_LIMIT)
     
         async def run(self) -> None:
+            logger.debug("Passenger: SelectDestination running")
             logger.info(f"Passenger {self.agent.passenger_id} is selecting destination")
 
             # If the destination was previously selected, then it should stay the same
@@ -54,7 +55,7 @@ class PassengerAgent(Agent):
 
     class RequestForTravel(State):
         async def run(self) -> None:
-            logger.debug("Passenger RequestForTravel running")
+            logger.debug("Passenger: RequestForTravel running")
             msg = Message(to="scheduler@localhost")             # Instantiate the message
             msg.set_metadata("performative", "cfp")             # Set the "inform" FIPA performative
             msg.set_metadata("ontology", "travel_request")
@@ -65,13 +66,13 @@ class PassengerAgent(Agent):
             msg.body = json.dumps(body_dict)                    # Set the message content
 
             await self.send(msg)
-            logger.debug(f"Message sent! \n Content: {body_dict}")
+            logger.info(f"Passenger: Message sent with content: {body_dict}")
 
             self.set_next_state("AWAIT_TRAVEL_PLAN") 
 
     class AwaitTravelPlan(State):
         async def run(self) -> None:
-            logger.debug("Passenger AwaitTravelPlan running")
+            logger.debug("Passenger: AwaitTravelPlan running")
             msg = await self.receive(timeout=TIMEOUT) # wait for a message for 10 seconds
             if msg:
                 logger.info("Message received with content: {}".format(msg.body))
@@ -79,7 +80,7 @@ class PassengerAgent(Agent):
                 logger.info(f"Bus with id {self.agent.bus_id} is selected for the passenger with id {self.agent.passenger_id}")
                 self.set_next_state("WAIT_FOR_BUS") 
             else:
-                logger.warning(f"Did not received any message after {TIMEOUT} seconds")
+                logger.warning(f"Passenger: AwaitTravelPlanDid - not received any message after {TIMEOUT} seconds")
                 self.set_next_state("SELECT_DESTINATION") 
 
     class WaitForBus(State):
@@ -93,6 +94,7 @@ class PassengerAgent(Agent):
             return random.random() > BUS_NOT_ARRIVING_CHANCES
 
         async def run(self) -> None:
+            logger.debug("Passenger: WaitForBus running")
             if self._wait_for_bus():
                 self.agent.travel_counter = 0
                 self.set_next_state("TRAVEL")
@@ -102,6 +104,7 @@ class PassengerAgent(Agent):
 
     class PassengerTravel(State):
         async def run(self) -> None:
+            logger.debug("Passenger: PassengerTravel running")
             logger.info(f"Passenger {self.agent.passenger_id} is driving to its selected destination")
             time.sleep(TRAVELING_STEP)
             if self.agent.travel_counter == 5:
@@ -117,7 +120,7 @@ class PassengerAgent(Agent):
 
     class ReceiveBusFailureMsg(State):
         async def run(self) -> None:
-            print("ReceiveBusFailureMssg running")
+            logger.debug("Passenger: ReceiveBusFailureMsg running")
             
             # template = Template()
             # template.set_metadata("performative", "failure")
@@ -132,9 +135,9 @@ class PassengerAgent(Agent):
             random_value = random.random()
             print(random_value)            
             if random_value < BUS_BRAKING_DOWN_CHANCES: # only for simulation
+                logger.info("Passenger: ReceiveBusFailureMsg - Bus broke down during the trip.")
                 self.set_next_state("HANDLE_BUS_FAILURE")
             else:
-                print("ReceiveBusFailureMssg: Nie odebrano wiadomości!!!")
                 self.set_next_state("TRAVEL")
 
     class HandleBusFailure(State):
@@ -142,9 +145,8 @@ class PassengerAgent(Agent):
             return random.random() > USER_RETRY_AFTER_FAILED_TRIP_CHANCES
         
         async def run(self) -> None:
-            print("HandleBusFailure running")
+            logger.debug("Passenger: HandleBusFailure running")
             self.agent.starting_point = randomize_map_coordinates(MAP_COORDINATE_LIMIT)
-            logger.info(f"Bus broke down during the trip.")
             if self._is_user_willing_to_retry():
                 logger.info(f"Passenger {self.agent.passenger_id} is starting looking for a next bus from new startng location: {self.agent.starting_point}")
                 self.set_next_state("SELECT_DESTINATION")
