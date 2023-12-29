@@ -1,10 +1,13 @@
+from agents.utils import randomize_map_coordinates
 from spade.agent import Agent
 from spade.behaviour import OneShotBehaviour, CyclicBehaviour, FSMBehaviour, State
 from spade.message import Message
 from spade.template import Template
 from logger import logger
 import json
-import random
+
+
+MAP_COORDINATE_LIMIT = 100
 
 
 class RoutingBusAgent(Agent):
@@ -44,8 +47,7 @@ class RoutingBusAgent(Agent):
         async def run(self):
             logger.debug(f"RoutingBus {self.agent.id}: GetBusInformation running")
 
-            x = round(random.random()*50, 2)
-            y = round(random.random()*50, 2)
+            x, y = randomize_map_coordinates(MAP_COORDINATE_LIMIT)
             self.position = [x, y]
 
             logger.info(f"RoutingBus {self.agent.id}: Position: {self.position}")

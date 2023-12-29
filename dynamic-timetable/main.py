@@ -4,11 +4,11 @@ from agents.SchedulerAgent import SchedulerAgent
 from agents.RoutingBusAgent import RoutingBusAgent
 
 async def main():
-    initial_path = [[0, 0], [5, 5], [10, 10], [15, 15], [20, 20]]
+    initial_path = [[0, 0], [20, 20], [40, 40], [60, 60], [80, 80]]
     routingbusagent1 = RoutingBusAgent("routing_bus1@localhost", "routing_bus1", initial_path)
     await routingbusagent1.start()
 
-    initial_path = [[20, 0], [15, 5], [10, 10], [5, 15], [0, 20]]
+    initial_path = [[100, 0], [80, 20], [60, 40], [40, 60], [20, 80]]
     routingbusagent2 = RoutingBusAgent("routing_bus2@localhost", "routing_bus2", initial_path)
     await routingbusagent2.start()
 
