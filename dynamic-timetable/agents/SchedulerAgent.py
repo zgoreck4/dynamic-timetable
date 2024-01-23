@@ -32,7 +32,6 @@ class SchedulerAgent(Agent):
             template.set_metadata("performative", "cfp")
             template.set_metadata("ontology", "travel_request")
 
-            # można będzie usunąć timeout
             msg = await self.receive(timeout=10)
             if msg and template.match(msg):
                 self.agent.msg = msg
@@ -71,17 +70,19 @@ class SchedulerAgent(Agent):
             self.destination = destination
 
     class Cfp(State):
-        async def run(self):
-            logger.debug("Scheduler: Cfp running")
-            for bus in self.agent.buses:
+        def _create_cfp(self, bus):
                 msg = Message(to=bus)     # Instantiate the message
                 msg.set_metadata("performative", "cfp")  # Set the "inform" FIPA performative
                 msg.set_metadata("ontology", "select_bus")
                 msg.set_metadata("language", "JSON")        # Set the language of the message content
-                # chyba zmienia "passenger_jid": passenger@localhost na "passenger_jid": ["passenger", "localhost", null]. Czy to nie problem?
                 body_dict = json.dumps({"passenger_info": self.agent.passenger_info.__dict__})  
                 msg.body = body_dict                 # Set the message content
+                return msg
 
+        async def run(self):
+            logger.debug("Scheduler: Cfp running")
+            for bus in self.agent.buses:
+                msg = self._create_cfp(bus)
                 await self.send(msg)
                 logger.debug("Scheduler: Message sent")
 
@@ -127,31 +128,36 @@ class SchedulerAgent(Agent):
             self.set_next_state("REPLY_BUS")
 
     class ReplyBus(State):
-        async def run(self):
-            logger.debug("Scheduler: ReplyBus running")
+        def _create_msg(self):
             msg = Message(to=self.agent.selected_bus)     # Instantiate the message
             msg.set_metadata("performative", "accept")  # Set the "inform" FIPA performative
             msg.set_metadata("ontology", "select_bus")
             msg.set_metadata("language", "JSON")        # Set the language of the message content
             body_dict = json.dumps({"accepted": True})  
             msg.body = body_dict                 # Set the message content
+            return msg
 
+        async def run(self):
+            msg = self._create_msg()
             await self.send(msg)
             logger.debug("Scheduler: Message sent!")
 
             self.set_next_state("SEND_TRAVELPLAN")
 
     class SendTravelPlan(State):
-        async def run(self):
-            logger.debug("Scheduler: SendTravelPlan running")
-
+        def _create_msg(self):
             msg = Message(to=str(self.agent.passenger_info.passenger_jid))     # Instantiate the message
             msg.set_metadata("performative", "propose")  # Set the "inform" FIPA performative
             msg.set_metadata("ontology", "travel_request")
             msg.set_metadata("language", "JSON")        # Set the language of the message content
             body_dict = json.dumps({"bus_id": self.agent.selected_bus})
             msg.body = body_dict                 # Set the message content
+            return msg
 
+        async def run(self):
+            logger.debug("Scheduler: SendTravelPlan running")
+
+            msg = self._create_msg()
             await self.send(msg)
             logger.info("Scheduler: SEND_TRAVELPLAN - Message sent!")
 
