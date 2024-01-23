@@ -3,7 +3,7 @@ from logger import logger
 from spade.agent import Agent
 from spade.behaviour import FSMBehaviour, State, CyclicBehaviour
 from spade.message import Message
-from spade.template import Template
+
 import json
 import random
 import time
@@ -55,19 +55,23 @@ class PassengerAgent(Agent):
             self.set_next_state("REQUEST_TRAVEL")   
 
     class RequestForTravel(State):
-        async def run(self) -> None:
+        def _create_message(self) -> Message:
             logger.debug("Passenger: RequestForTravel running")
-            msg = Message(to="scheduler@localhost")             # Instantiate the message
-            msg.set_metadata("performative", "cfp")             # Set the "inform" FIPA performative
+            msg = Message(to="scheduler@localhost")  # Instantiate the message
+            msg.set_metadata("performative", "cfp")  # Set the "inform" FIPA performative
             msg.set_metadata("ontology", "travel_request")
-            msg.set_metadata("language", "JSON")                # Set the language of the message content
+            msg.set_metadata("language", "JSON")  # Set the language of the message content
             body_dict = {
                 "start_point": self.agent.starting_point,
                 "destination": self.agent.destination}
-            msg.body = json.dumps(body_dict)                    # Set the message content
+            msg.body = json.dumps(body_dict)
 
+            return msg
+
+        async def run(self) -> None:
+            msg = self._create_message()
             await self.send(msg)
-            logger.info(f"Passenger: Message sent with content: {body_dict}")
+            logger.info(f"Passenger: Message sent with content: {msg.body}")
 
             self.set_next_state("AWAIT_TRAVEL_PLAN") 
 
