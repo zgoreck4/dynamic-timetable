@@ -165,6 +165,17 @@ class PassengerAgent(Agent):
                 self.set_next_state("EXIT_BUS_FAILED")
 
     class ChangePlan(CyclicBehaviour):
+        def _create_msg(self):
+            msg = Message(to=self.agent.bus_id)
+            msg.set_metadata("performative", "inform")
+            msg.set_metadata("ontology", "resignation")
+            msg.set_metadata("language", "JSON")
+            body_dict = {
+                "resignation": True, "destination": self.agent.destination}
+            msg.body = json.dumps(body_dict)
+
+            return msg
+
         async def run(self):
             logger.debug("Passenger: ChangePlan running")
             time.sleep(2) # only for simulation
@@ -172,16 +183,10 @@ class PassengerAgent(Agent):
                 self.agent.main_beh.kill()
                 self.agent.main_beh = None
 
-                msg = Message(to=self.agent.bus_id)  
-                msg.set_metadata("performative", "inform")
-                msg.set_metadata("ontology", "resignation")
-                msg.set_metadata("language", "JSON")          
-                body_dict = {
-                    "resignation": True, "destination": self.agent.destination}
-                msg.body = json.dumps(body_dict)  
+                msg = self._create_msg()
 
                 await self.send(msg)
-                logger.info(f"Passenger: Message sent with content: {body_dict}")
+                logger.info(f"Passenger: Message sent with content: {msg.body}")
 
                 await self.agent.stop()       
 

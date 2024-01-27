@@ -85,5 +85,93 @@ async def test_passenger_travel(monkeypatch):
 
     await travel_state.run()
 
-
     assert travel_state.next_state == "EXIT_BUS_SUCCESSFULL"
+
+
+@pytest.mark.asyncio
+async def test_bus_failure(monkeypatch):
+    monkeypatch.setattr("agents.PassengerAgent.BUS_BRAKING_DOWN_CHANCES", -1)
+    passenger = PassengerAgent("passenger@localhost", "passenger")
+    passenger.destination = [100, 100]
+    passenger.starting_point = [0, 0]
+
+    receive_bus_failure_state = passenger.ReceiveBusFailureMsg()
+    receive_bus_failure_state.set_agent(passenger)
+
+    await receive_bus_failure_state.run()
+
+    assert receive_bus_failure_state.next_state == "BUS_FAILURE_MSG"
+
+
+@pytest.mark.asyncio
+async def test_bus_handle_failure_retry(monkeypatch):
+    monkeypatch.setattr("agents.PassengerAgent.PassengerAgent.HandleBusFailure._is_user_willing_to_retry", Mock(return_value=True))
+    passenger = PassengerAgent("passenger@localhost", "passenger")
+    passenger.destination = [100, 100]
+    passenger.starting_point = [0, 0]
+    passenger.change_plan_beh = passenger.ChangePlan()
+
+    handle_bus_failure_state = passenger.HandleBusFailure()
+    handle_bus_failure_state.set_agent(passenger)
+
+    await handle_bus_failure_state.run()
+
+    assert handle_bus_failure_state.is_running == False
+
+
+@pytest.mark.asyncio
+async def test_bus_handle_failure_no_retry(monkeypatch):
+    monkeypatch.setattr("agents.PassengerAgent.PassengerAgent.HandleBusFailure._is_user_willing_to_retry", Mock(return_value=False))
+    passenger = PassengerAgent("passenger@localhost", "passenger")
+    passenger.destination = [100, 100]
+    passenger.starting_point = [0, 0]
+    passenger.change_plan_beh = passenger.ChangePlan()
+
+    handle_bus_failure_state = passenger.HandleBusFailure()
+    handle_bus_failure_state.set_agent(passenger)
+
+    await handle_bus_failure_state.run()
+
+    assert handle_bus_failure_state.next_state == "EXIT_BUS_FAILED"
+
+
+@pytest.mark.asyncio
+async def test_change_plan(monkeypatch):
+    monkeypatch.setattr("agents.PassengerAgent.CHANGE_PLAN_CHANCES", 1000)
+    passenger = PassengerAgent("passenger@localhost", "passenger")
+    passenger.destination = [100, 100]
+    passenger.starting_point = [0, 0]
+    passenger._add_main_beh()
+
+    change_plan_state = passenger.ChangePlan()
+    change_plan_state.set_agent(passenger)
+
+    class MockMsg:
+        body = '{"bus_id": 1}'
+
+    async def mock_send(msg, **kwargs):
+        return MockMsg()
+
+    change_plan_state.send = mock_send
+
+    await change_plan_state.run()
+    assert change_plan_state.is_running == False
+
+
+def test_change_plan_msg(monkeypatch):
+    monkeypatch.setattr("agents.PassengerAgent.CHANGE_PLAN_CHANCES", 1000)
+    passenger = PassengerAgent("passenger@localhost", "passenger")
+    passenger.destination = [100, 100]
+    passenger.starting_point = [0, 0]
+    passenger._add_main_beh()
+
+    change_plan_state = passenger.ChangePlan()
+    change_plan_state.set_agent(passenger)
+
+    msg = change_plan_state._create_msg()
+    assert msg.body == '{"resignation": true, "destination": [100, 100]}'
+    assert msg.metadata["language"] == "JSON"
+    assert msg.metadata["ontology"] == "resignation"
+    assert msg.metadata["performative"] == "inform"
+
+
