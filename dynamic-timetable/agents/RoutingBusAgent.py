@@ -17,6 +17,7 @@ class RoutingBusAgent(Agent):
         self.id = jid
         self.path = path
         self.potential_new_path = None
+        self.msg = None
 
     class RoutingBusBehaviour(FSMBehaviour):
         async def on_start(self):

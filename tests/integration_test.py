@@ -12,8 +12,8 @@ pytest_plugins = ('pytest_asyncio',)
 async def test_e2e_travel(monkeypatch):
     monkeypatch.setattr("agents.PassengerAgent.BUS_AWAITING_TME", 0.1)
     monkeypatch.setattr("agents.PassengerAgent.TRAVELING_STEP", 0.1)
-    monkeypatch.setattr("agents.PassengerAgent.BUS_BRAKING_DOWN_CHANCES", 1000) # no chance of bus breaking down
-    monkeypatch.setattr("agents.PassengerAgent.CHANGE_PLAN_CHANCES", 1000) # no chance of changing plan
+    monkeypatch.setattr("agents.PassengerAgent.BUS_BRAKING_DOWN_CHANCES", -1) # no chance of bus breaking down
+    monkeypatch.setattr("agents.PassengerAgent.CHANGE_PLAN_CHANCES", -1) # no chance of changing plan
 
     initial_path = [[0, 0], [20, 20], [40, 40], [60, 60], [80, 80]]
     routingbusagent1 = RoutingBusAgent("routing_bus1@localhost", "routing_bus1", initial_path)
