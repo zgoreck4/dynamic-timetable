@@ -183,7 +183,12 @@ class RoutingBusAgent(Agent):
                 if resignation:                    
                     destination = msg_body.get('destination', None)
                     self.agent.path.remove(destination)
-                    logger.info(f"RoutingBus: ReceivePassengerMsg - Removed point {destination} from path")
+                    start_point = msg_body.get('start_point', None)
+                    if start_point:
+                        self.agent.path.remove(start_point)
+                        logger.info(f"RoutingBus: ReceivePassengerMsg - Removed points {start_point}, {destination} from path")
+                    else:
+                        logger.info(f"RoutingBus: ReceivePassengerMsg - Removed point {destination} from path")
 
     async def setup(self):
         logger.debug(f"RoutingBus {self.id}: started")
