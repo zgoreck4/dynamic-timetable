@@ -31,6 +31,8 @@ class PassengerAgent(Agent):
         self.bus_id = None
         self.passenger_id = uuid4()
         self.travel_counter = 0
+        self.start_time = 0
+        self.waiting_time = []
         logger.info(f"Passenger with id {self.passenger_id} registered.")
 
     class PassengerBehaviour(FSMBehaviour):
@@ -42,7 +44,6 @@ class PassengerAgent(Agent):
 
     class SelectDestination(State):
         def select_destination(self) -> tuple[float, float]:
-            # FIXME - this could be loaded from the config
             return randomize_map_coordinates(MAP_COORDINATE_LIMIT)
     
         async def run(self) -> None:
@@ -72,7 +73,7 @@ class PassengerAgent(Agent):
             msg = self._create_message()
             await self.send(msg)
             logger.info(f"Passenger: Message sent with content: {msg.body}")
-
+            self.agent.start_time = time.time()
             self.set_next_state("AWAIT_TRAVEL_PLAN") 
 
     class AwaitTravelPlan(State):
@@ -80,7 +81,9 @@ class PassengerAgent(Agent):
             logger.debug("Passenger: AwaitTravelPlan running")
             msg = await self.receive(timeout=TIMEOUT) # wait for a message for 10 seconds
             if msg:
-                logger.info("Message received with content: {}".format(msg.body))
+                end_time = time.time()
+                self.agent.waiting_time.append(round(end_time - self.agent.start_time, 3))
+                logger.info("After {:.2f} seconds passenger {} received message with content: {}".format(self.agent.waiting_time[-1], self.agent.passenger_id, msg.body))
                 self.agent.bus_id = json.loads(msg.body).get("bus_id")
                 logger.info(f"Bus with id {self.agent.bus_id} is selected for the passenger with id {self.agent.passenger_id}")
                 self.set_next_state("WAIT_FOR_BUS") 
@@ -115,6 +118,7 @@ class PassengerAgent(Agent):
     class ExitBus(State):
         async def run(self) -> None:
             logger.debug("Passenger: ExitBus running")
+
             await self.agent.stop()
 
     class HandleBusFailBeh(FSMBehaviour):
@@ -170,20 +174,28 @@ class PassengerAgent(Agent):
             msg.set_metadata("performative", "inform")
             msg.set_metadata("ontology", "resignation")
             msg.set_metadata("language", "JSON")
-            body_dict = {
-                "resignation": True, "destination": self.agent.destination}
+            if self.agent.main_beh.current_state == 'TRAVEL':
+                body_dict = {
+                    "resignation": True, "destination": self.agent.destination}
+            elif self.agent.main_beh.current_state == 'WAIT_FOR_BUS':
+                body_dict = {
+                    "resignation": True, "start_point": self.agent.starting_point, "destination": self.agent.destination}
+            else:
+                body_dict = {
+                    "resignation": True, "start_point": self.agent.starting_point, "destination": self.agent.destination}
             msg.body = json.dumps(body_dict)
 
             return msg
 
         async def run(self):
             logger.debug("Passenger: ChangePlan running")
+            print(self.agent.main_beh.current_state)
             time.sleep(2) # only for simulation
             if random.random() < CHANGE_PLAN_CHANCES:
+                msg = self._create_msg()
+
                 self.agent.main_beh.kill()
                 self.agent.main_beh = None
-
-                msg = self._create_msg()
 
                 await self.send(msg)
                 logger.info(f"Passenger: Message sent with content: {msg.body}")
@@ -205,6 +217,7 @@ class PassengerAgent(Agent):
         fsm.add_transition(source="AWAIT_TRAVEL_PLAN", dest="SELECT_DESTINATION")
         fsm.add_transition(source="AWAIT_TRAVEL_PLAN", dest="WAIT_FOR_BUS")
         fsm.add_transition(source="WAIT_FOR_BUS", dest="TRAVEL")
+        fsm.add_transition(source="TRAVEL", dest="TRAVEL")
         fsm.add_transition(source="TRAVEL", dest="EXIT_BUS_SUCCESSFULL")
 
         self.main_beh = fsm
