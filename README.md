@@ -1,92 +1,50 @@
 # Dynamic Timetable
 
-
-
-## Getting started
-
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
-
-```
-cd existing_repo
-git remote add origin https://gitlab-stud.elka.pw.edu.pl/manhattan/dynamic-timetable.git
-git branch -M main
-git push -uf origin main
-```
-
-## Integrate with your tools
-
-- [ ] [Set up project integrations](https://gitlab-stud.elka.pw.edu.pl/manhattan/dynamic-timetable/-/settings/integrations)
-
-## Collaborate with your team
-
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
-
-## Test and Deploy
-
-Use the built-in continuous integration in GitLab.
-
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing(SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thank you to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
 ## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+The goal of our project is to create a system that provides convenient, direct public transportation. Our system will manage buses by continuously adjusting the number and routes of buses based on demand. There will be no pre-established schedules — no specific arrival and departure times or fixed bus stop locations. Buses will pick up and drop off passengers at locations of their choice.
+The project contains only a simulation of a working system.
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+## System Concept
+Passengers will request rides from one point to another via mobile applications. These requests will be sent to a central system, which will distribute the information to the buses. Each bus will then calculate the cost of picking up a new passenger based on its current status — whether it is stationary or moving (i.e., active), its location, and its list of stops. This information will be sent back to the central system, which will select the most appropriate means of transportation and relay the details to both the passenger and the chosen bus.
+In cases of low demand, some buses may remain stationary.
+We assume that buses will operate on a Manhattan-style grid layout, where the distance between any two points is measured as the Manhattan distance.
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+## Assumptions
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+1. The passenger has been simulated.
+2. The positions of the RoutingBus and Passenger agents, as well as the Passenger agent's travel destination, are randomly drawn from a continuous distribution within the range [0, 100].
+3. To simulate bus breakdowns and passenger cancellations, the program periodically randomizes the occurrence of these alternative scenarios with a specified probability.
+4. For demonstration purposes, there is only 1 Passenger agent and 2 RoutingBus objects, although the system is designed to handle any number of them.
+5. The default (initial) routes for both RoutingBus instances are fixed and are as follows: [[0, 0], [20, 20], [40, 40], [60, 60], [80, 80]] and [[100, 0], [80, 20], [60, 40], [40, 60], [20, 80]].
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+## How to run
+### Windows
+```bash
+docker compose up -d 
+./start.bat 
+python .\dynamic-timetable\main.py 
+```
+### Linux
+```bash
+docker compose up -d 
+container_id=$(docker compose ps -q) 
+docker exec -it $container_id prosodyctl register scheduler localhost scheduler 
+docker exec -it $container_id prosodyctl register passenger 
+localhost passenger 
+docker exec -it $container_id prosodyctl register routing_bus1 
+localhost routing_bus1 
+docker exec -it $container_id prosodyctl register routing_bus2 
+localhost routing_bus2
+```
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+## Program Operation
+The entire process begins with the passenger selecting the coordinates of their desired destination. The main system (Scheduler) then assigns an appropriate bus for the passenger to travel to the designated location. Of course, for demonstration purposes, we are limited to the assumptions described above. There is also the possibility of a bus breakdown or the passenger canceling the ride. Below is a screenshot displaying the application's activity logs.
+![Alt text](doc/img/operation1.png)
+Zaimplementowaliśmy również opisane scenariusze alternatywne
+### Bus failure
+![Alt text](doc/img/bus_failure.png)
+Logs related to the bus breakdown are highlighted in the red rectangle. The passenger receives a message about the bus breakdown. The passenger then decides to use the system's services again and resubmits a request for a ride to the Scheduler, restarting the entire process.
+### Change in Passenger Plans
+![Alt text](doc/img/change_plan.png)
+Logs related to changes in the passenger's plans are highlighted in the red rectangle. It shows that the passenger sends a cancellation message to the appropriate Routing Bus, which then removes the passenger's start and destination points from its route. It is also important to note that the Routing Bus keeps track of the start and destination points for each passenger on its route. This means that if the Routing Bus had several passengers who wanted to board or alight at the same location where a cancelling passenger is, only the point for the cancelling passenger will be removed. The remaining passengers will still be able to board or alight at their designated stops.
