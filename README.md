@@ -41,7 +41,8 @@ localhost routing_bus2
 ## Program Operation
 The entire process begins with the passenger selecting the coordinates of their desired destination. The main system (Scheduler) then assigns an appropriate bus for the passenger to travel to the designated location. Of course, for demonstration purposes, we are limited to the assumptions described above. There is also the possibility of a bus breakdown or the passenger canceling the ride. Below is a screenshot displaying the application's activity logs.
 ![Alt text](doc/img/operation1.png)
-Zaimplementowaliśmy również opisane scenariusze alternatywne
+
+We have also implemented the alternative scenarios.
 ### Bus failure
 ![Alt text](doc/img/bus_failure.png)
 Logs related to the bus breakdown are highlighted in the red rectangle. The passenger receives a message about the bus breakdown. The passenger then decides to use the system's services again and resubmits a request for a ride to the Scheduler, restarting the entire process.
